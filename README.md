@@ -14,6 +14,6 @@
    `2.build.bat`
 3. 起動
    - URL を壁紙化: `run-url.bat`
-   - ローカルHTML を壁紙化: `run-file1.bat` / `run-file2.bat`
+   - ローカルHTML を壁紙化: `run-file.bat`
 4. 停止  
    `kill.bat`
