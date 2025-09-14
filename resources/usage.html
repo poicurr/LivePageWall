@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DesktopWebView – usage</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body{height:100%}
+  body{margin:0;background:#0f1115;color:#e6e6e6;font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial;display:grid;place-items:center;overflow:hidden}
+  .card{width:min(640px,92vw);background:#111420;border:1px solid #1f2533;border-radius:12px;padding:18px 16px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  h1{margin:.1em 0 .4em;font-size:20px;color:#ff6b6b}
+  p{margin:.2em 0}
+  pre{margin:.4em 0;background:#0b0e14;border:1px solid #1d2330;border-radius:8px;padding:10px;white-space:pre-wrap;word-break:break-all}
+  code{background:#0b0e14;border:1px solid #1d2330;border-radius:6px;padding:.1em .35em}
+  .muted{color:#9aa7bd;font-size:12px}
+</style>
+<div class="card">
+  <h1>引数なしで起動されました。</h1>
+  <p>使用方法</p>
+
+  <p><b>URL/ローカルHTMLを表示(バッチファイル内の表示対象を編集してください)</b></p>
+  <pre>run-url.bat
+run-file.bat</pre>
+
+  <p><b>直接起動する場合</b></p>
+  <pre>DesktopWebView.exe https://example.com/
+DesktopWebView.exe C:\path\to\local.html</pre>
+
+  <p><b>終了</b></p>
+  <pre>kill.bat</pre>
+
+  <p class="muted">相対パスは EXE と同じフォルダ基準。ローカルは内部で file URL に正規化されます。</p>
+</div>

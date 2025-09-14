@@ -1,0 +1,206 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WebGL2 Fullscreen Shader</title>
+<style>
+  html,body{margin:0;height:100%;background:#000}
+  canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;}
+</style>
+<canvas id="c"></canvas>
+<script>
+const gl = (()=> {
+  const c = document.getElementById('c');
+  const g = c.getContext('webgl2', {antialias:false, depth:false, stencil:false, premultipliedAlpha:false, powerPreference:'high-performance'});
+  if(!g){ alert('WebGL2 not supported'); throw new Error('no webgl2'); }
+  return g;
+})();
+
+const vs = `#version 300 es
+layout(location=0) in vec2 aPos;
+void main(){ gl_Position = vec4(aPos,0.0,1.0); }
+`;
+
+const fs = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+
+out vec4 fragColor;
+
+// ---- Shadertoy-style uniforms ----
+uniform vec3  iResolution;
+uniform float iTime;
+uniform float iTimeDelta;
+uniform float iFrameRate;
+uniform int   iFrame;
+uniform float iChannelTime[4];
+uniform vec3  iChannelResolution[4];
+uniform vec4  iMouse;
+uniform sampler2D iChannel0;
+uniform sampler2D iChannel1;
+uniform sampler2D iChannel2;
+uniform sampler2D iChannel3;
+uniform vec4  iDate;
+uniform float iSampleRate;
+
+// ======= User fragment begins =======
+
+void mainImage(out vec4 o, vec2 u) {
+    
+    vec3 q,p = iResolution;
+    
+    float i, s,
+          // start the ray at a small random distance,
+          // this will reduce banding
+          d = .125*texelFetch(iChannel0, ivec2(u)%1024, 0).a,
+          t = iTime;
+          
+    // scale coords
+    u =(u+u-p.xy)/p.y;
+    
+    for(o*=i; i++<1e2; ) {
+        
+        // shorthand for standard raymarch sample, then move forward:
+        // p = ro + rd * d, p.z -= 5.;
+        q = p = vec3(u * d, d - 5.);
+
+        // turbulence
+        for (s = 1.; s++ <6.;
+            q += sin(.6*t+p.zxy*s*.3)*.4,
+            p += sin(t+p.yzx*s)*.25);
+
+        // distance to spheres
+        d += s = .005 + abs(min(length(p+1.)-2., length(q-1.)-3.))*.2;
+        
+        // color: 1.+cos so we don't go negative, cos(d+vec4(6,4,2,0)) samples from the palette
+        // divide by s for form and distance
+        o += (1.+cos(p.z+vec4(6,4,2,0))) / s;
+        
+    }
+    
+    // tonemap and divide brightness
+    o = tanh(o / 8e3 / max(length(u), .5));
+}
+
+void main(){
+    vec4 outColor;
+    mainImage(outColor, gl_FragCoord.xy);
+    fragColor = outColor;
+}
+// ======= User fragment ends =======
+`;
+
+function compileShader(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+    const log = gl.getShaderInfoLog(s);
+    console.error(log, src.split('\n').map((l,i)=>`${(i+1).toString().padStart(3)}: ${l}`).join('\n'));
+    throw new Error('Shader compile failed:\n'+log);
+  }
+  return s;
+}
+function createProgram(vsSrc, fsSrc){
+  const p = gl.createProgram();
+  gl.attachShader(p, compileShader(gl.VERTEX_SHADER, vsSrc));
+  gl.attachShader(p, compileShader(gl.FRAGMENT_SHADER, fsSrc));
+  gl.bindAttribLocation(p, 0, 'aPos');
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+    const log = gl.getProgramInfoLog(p);
+    throw new Error('Program link failed:\n'+log);
+  }
+  return p;
+}
+
+const prog = createProgram(vs, fs);
+gl.useProgram(prog);
+
+// Fullscreen triangle
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+  -1,-1,  3,-1,  -1,3
+]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+// Uniform locations
+const U = {
+  iResolution: gl.getUniformLocation(prog,'iResolution'),
+  iTime: gl.getUniformLocation(prog,'iTime'),
+  iTimeDelta: gl.getUniformLocation(prog,'iTimeDelta'),
+  iFrameRate: gl.getUniformLocation(prog,'iFrameRate'),
+  iFrame: gl.getUniformLocation(prog,'iFrame'),
+  iMouse: gl.getUniformLocation(prog,'iMouse'),
+  iDate: gl.getUniformLocation(prog,'iDate'),
+  iSampleRate: gl.getUniformLocation(prog,'iSampleRate'),
+  iChannelTime: gl.getUniformLocation(prog,'iChannelTime'),
+  iChannelResolution: gl.getUniformLocation(prog,'iChannelResolution'),
+};
+
+// Resize with DPR
+const state = {w:0,h:0,dpr:1,mouse:[0,0,0,0],down:false,lastT:0,frame:0};
+function resize(){
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio||1));
+  const w = Math.floor(gl.canvas.clientWidth * dpr);
+  const h = Math.floor(gl.canvas.clientHeight * dpr);
+  if(w!==state.w || h!==state.h){
+    state.w=w; state.h=h; state.dpr=dpr;
+    gl.canvas.width = w;
+    gl.canvas.height = h;
+    gl.viewport(0,0,w,h);
+  }
+}
+new ResizeObserver(resize).observe(gl.canvas);
+
+// Mouse (Shadertoy semantics)
+gl.canvas.addEventListener('mousemove', e=>{
+  const rect = gl.canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * state.dpr;
+  const y = (rect.height - (e.clientY - rect.top)) * state.dpr;
+  if(state.down){ state.mouse[0]=x; state.mouse[1]=y; }
+});
+gl.canvas.addEventListener('mousedown', e=>{
+  state.down=true;
+  const rect = gl.canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * state.dpr;
+  const y = (rect.height - (e.clientY - rect.top)) * state.dpr;
+  state.mouse[2]=x; state.mouse[3]=y;
+  state.mouse[0]=x; state.mouse[1]=y;
+});
+gl.canvas.addEventListener('mouseup', ()=>{ state.down=false; });
+
+// Animation loop
+let start = performance.now();
+function frame(now){
+  resize();
+  const t = (now - start)/1000;
+  const dt = (now - state.lastT)/1000 || 0;
+  state.lastT = now;
+  state.frame++;
+
+  // Uniforms
+  gl.uniform3f(U.iResolution, state.w, state.h, 1.0);
+  gl.uniform1f(U.iTime, t);
+  gl.uniform1f(U.iTimeDelta, dt);
+  gl.uniform1f(U.iFrameRate, dt>0? 1.0/dt : 0.0);
+  gl.uniform1i(U.iFrame, state.frame|0);
+  gl.uniform4f(U.iMouse, state.mouse[0], state.mouse[1], state.mouse[2], state.mouse[3]);
+
+  const d = new Date();
+  const secs = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds();
+  gl.uniform4f(U.iDate, d.getFullYear(), d.getMonth()+1, d.getDate(), secs);
+  gl.uniform1f(U.iSampleRate, 44100.0);
+
+  // Initialize unused array uniforms
+  if (U.iChannelTime) gl.uniform1fv(U.iChannelTime, new Float32Array([t,t,t,t]));
+  if (U.iChannelResolution) gl.uniform3fv(U.iChannelResolution, new Float32Array([
+    state.w,state.h,1,  state.w,state.h,1,  state.w,state.h,1,  state.w,state.h,1
+  ]));
+
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
