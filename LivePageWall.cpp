@@ -18,9 +18,9 @@ using Microsoft::WRL::ComPtr;
 #define WS_EX_NOREDIRECTIONBITMAP 0x00200000
 #endif
 constexpr UINT kSwpPosNoZNoAct =
-    SWP_NOZORDER | SWP_NOACTIVATE; // ˆÊ’u/ƒTƒCƒY‚Ì‚İ•ÏX
+    SWP_NOZORDER | SWP_NOACTIVATE; // ä½ç½®/ã‚µã‚¤ã‚ºã®ã¿å¤‰æ›´
 constexpr UINT kSwpZOnlyNoAct =
-    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE; // Z‡‚Ì‚İ•ÏX
+    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE; // Zé †ã®ã¿å¤‰æ›´
 
 static HWND gProgman = nullptr, gWorkerW = nullptr, gDefView = nullptr;
 static BOOL gIsRaised = FALSE;
@@ -48,11 +48,11 @@ static void SetupDesktopHandles() {
     return;
   gIsRaised = HasEx(gProgman, WS_EX_NOREDIRECTIONBITMAP);
 
-  // 0x052C‚ÅWorkerW¶¬‚ğ‘£‚·
+  // 0x052Cã§WorkerWç”Ÿæˆã‚’ä¿ƒã™
   SendMessageTimeoutW(gProgman, 0x052C, (WPARAM)0xD, (LPARAM)0x1, SMTO_NORMAL,
                       1000, nullptr);
 
-  // DefView/WorkerW‚ğ’T‚·
+  // DefView/WorkerWã‚’æ¢ã™
   gDefView = gWorkerW = nullptr;
   EnumWindows(EnumWinProc, 0);
   if (gIsRaised) {
@@ -69,12 +69,12 @@ static void FitAndOrder(HWND hwnd) {
     return;
   if (gIsRaised) {
     RECT r{};
-    GetWindowRect(gWorkerW, &r);                             // ‰æ–ÊÀ•W
-    MapWindowPoints(HWND_DESKTOP, gProgman, (LPPOINT)&r, 2); // ProgmanŠî€‚Ö
+    GetWindowRect(gWorkerW, &r);                             // ç”»é¢åº§æ¨™
+    MapWindowPoints(HWND_DESKTOP, gProgman, (LPPOINT)&r, 2); // ProgmanåŸºæº–ã¸
     SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left,
                  r.bottom - r.top, kSwpPosNoZNoAct);
     if (gDefView) {
-      SetWindowPos(hwnd, gDefView, 0, 0, 0, 0, kSwpZOnlyNoAct); // DefView’¼‰º
+      SetWindowPos(hwnd, gDefView, 0, 0, 0, 0, kSwpZOnlyNoAct); // DefViewç›´ä¸‹
     }
   } else {
     RECT rc{};
@@ -126,10 +126,10 @@ static std::wstring ResolveStartUri() {
   if (__argc >= 2) {
     std::wstring a = __wargv[1];
     if (PathIsURLW(a.c_str()))
-      return a;                          // http(s), file:, data: ‚È‚Ç
-    return to_abs_fileurl(std::move(a)); // ƒ[ƒJƒ‹ƒtƒ@ƒCƒ‹i‘Š‘Î‚à‰Âj
+      return a;                          // http(s), file:, data: ãªã©
+    return to_abs_fileurl(std::move(a)); // ãƒ­ãƒ¼ã‚«ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ï¼ˆç›¸å¯¾ã‚‚å¯ï¼‰
   }
-  return to_abs_fileurl(L"resources/usage.html"); // ˆø”‚È‚µƒfƒtƒHƒ‹ƒg
+  return to_abs_fileurl(L"resources/usage.html"); // å¼•æ•°ãªã—ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ
 }
 
 static void InitWebView2(HWND parent) {
@@ -174,6 +174,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
   case WM_ERASEBKGND:
     return 1;
   case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint(h, &ps);
+    EndPaint(h, &ps);
     return 0;
   }
   case WM_SIZE:
@@ -203,7 +206,7 @@ static HWND CreateHost(HINSTANCE hi) {
                       CW_USEDEFAULT, 100, 100, nullptr, nullptr, hi, nullptr);
   if (!hwnd)
     return nullptr;
-  // q‰»
+  // å­åŒ–
   LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
   SetWindowLongPtrW(hwnd, GWL_STYLE,
                     (style & ~WS_POPUP) | (WS_CHILD | WS_VISIBLE));
